@@ -119,6 +119,373 @@ async function prepareAccountDeletion(
   if (unlinkError) throw unlinkError
 }
 
+
+const BACKUP_FORMAT = 'wellness-portal-backup'
+const BACKUP_VERSION = 1
+const PAGE_SIZE = 1000
+
+async function fetchAllRows(adminClient: any, table: string) {
+  const rows: any[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await adminClient
+      .from(table)
+      .select('*')
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < PAGE_SIZE) break
+  }
+  return rows
+}
+
+async function upsertRows(adminClient: any, table: string, rows: any[]) {
+  for (let offset = 0; offset < rows.length; offset += 500) {
+    const batch = rows.slice(offset, offset + 500)
+    if (!batch.length) continue
+    const { error } = await adminClient.from(table).upsert(batch)
+    if (error) throw error
+  }
+}
+
+async function deleteAllRows(adminClient: any, table: string) {
+  const { error } = await adminClient.from(table).delete().not('id', 'is', null)
+  if (error) throw error
+}
+
+async function listAllAuthUsers(adminClient: any) {
+  const users: any[] = []
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: PAGE_SIZE })
+    if (error) throw error
+    const batch = data?.users || []
+    users.push(...batch)
+    if (batch.length < PAGE_SIZE) break
+  }
+  return users
+}
+
+async function listStorageObjects(adminClient: any, prefix = ''): Promise<any[]> {
+  const objects: any[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await adminClient.storage
+      .from('client-photos')
+      .list(prefix, { limit: PAGE_SIZE, offset, sortBy: { column: 'name', order: 'asc' } })
+    if (error) throw error
+    const batch = data || []
+
+    for (const item of batch) {
+      const path = prefix ? `${prefix}/${item.name}` : item.name
+      if (item.id) {
+        objects.push({ path, metadata: item.metadata || {} })
+      } else {
+        objects.push(...await listStorageObjects(adminClient, path))
+      }
+    }
+
+    if (batch.length < PAGE_SIZE) break
+  }
+  return objects
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+  return btoa(binary)
+}
+
+function base64ToBytes(value: string) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return bytes
+}
+
+async function backupPhotos(adminClient: any) {
+  const objects = await listStorageObjects(adminClient)
+  const photos: any[] = []
+
+  for (const object of objects) {
+    const { data, error } = await adminClient.storage.from('client-photos').download(object.path)
+    if (error) throw error
+    const bytes = new Uint8Array(await data.arrayBuffer())
+    photos.push({
+      path: object.path,
+      content_type: data.type || object.metadata?.mimetype || 'application/octet-stream',
+      base64: bytesToBase64(bytes),
+    })
+  }
+
+  return photos
+}
+
+function makeTemporaryPassword() {
+  const random = crypto.getRandomValues(new Uint8Array(18))
+  return `Wp!${bytesToBase64(random).replace(/[^a-zA-Z0-9]/g, '').slice(0, 22)}9a`
+}
+
+function sanitizeAuthUser(user: any) {
+  return {
+    id: user.id,
+    email: user.email || null,
+    phone: user.phone || null,
+    app_metadata: user.app_metadata || {},
+    user_metadata: user.user_metadata || {},
+    email_confirmed_at: user.email_confirmed_at || null,
+    phone_confirmed_at: user.phone_confirmed_at || null,
+    banned_until: user.banned_until || null,
+    created_at: user.created_at || null,
+    updated_at: user.updated_at || null,
+  }
+}
+
+async function createFullBackup(adminClient: any) {
+  const [authUsers, profiles, clients, parameters, entries, photos] = await Promise.all([
+    listAllAuthUsers(adminClient),
+    fetchAllRows(adminClient, 'profiles'),
+    fetchAllRows(adminClient, 'clients'),
+    fetchAllRows(adminClient, 'parameters'),
+    fetchAllRows(adminClient, 'parameter_entries'),
+    backupPhotos(adminClient),
+  ])
+
+  const profileIds = new Set(profiles.map((profile: any) => profile.id))
+
+  return {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    app_version: '2.4.0',
+    created_at: new Date().toISOString(),
+    auth_users: authUsers.filter((user: any) => profileIds.has(user.id)).map(sanitizeAuthUser),
+    tables: {
+      profiles,
+      clients,
+      parameters,
+      parameter_entries: entries,
+    },
+    storage: {
+      client_photos: photos,
+    },
+    password_note: 'Password hashes are not exposed by the Supabase Admin API. Existing accounts keep their passwords when restored in the same project; missing accounts receive temporary passwords.',
+  }
+}
+
+async function restoreFullBackup(
+  adminClient: any,
+  backup: any,
+  callerId: string,
+  replaceAccounts: boolean
+) {
+  if (!backup || backup.format !== BACKUP_FORMAT || backup.version !== BACKUP_VERSION) {
+    throw new Error('Invalid or unsupported Wellness Portal backup file')
+  }
+
+  const authUsers = Array.isArray(backup.auth_users) ? backup.auth_users : []
+  const profiles = Array.isArray(backup.tables?.profiles) ? backup.tables.profiles : []
+  const clients = Array.isArray(backup.tables?.clients) ? backup.tables.clients : []
+  const parameters = Array.isArray(backup.tables?.parameters) ? backup.tables.parameters : []
+  const entries = Array.isArray(backup.tables?.parameter_entries) ? backup.tables.parameter_entries : []
+  const photos = Array.isArray(backup.storage?.client_photos) ? backup.storage.client_photos : []
+
+  if (!profiles.length || !authUsers.length) throw new Error('The backup does not contain account data')
+
+  const authIds = new Set(authUsers.map((user: any) => user.id))
+  const profileIds = new Set(profiles.map((profile: any) => profile.id))
+  const clientIds = new Set(clients.map((client: any) => client.id))
+  const parameterIds = new Set(parameters.map((parameter: any) => parameter.id))
+
+  if (profiles.some((profile: any) => !authIds.has(profile.id))) {
+    throw new Error('The backup contains a profile without a matching Auth account')
+  }
+  if (profiles.some((profile: any) => profile.created_by && !profileIds.has(profile.created_by))) {
+    throw new Error('The backup contains an invalid account hierarchy')
+  }
+  if (clients.some((client: any) =>
+    (client.owner_id && !profileIds.has(client.owner_id))
+    || (client.user_id && !profileIds.has(client.user_id))
+  )) {
+    throw new Error('The backup contains invalid client-account links')
+  }
+  if (entries.some((entry: any) =>
+    !clientIds.has(entry.client_id) || !parameterIds.has(entry.parameter_id)
+  )) {
+    throw new Error('The backup contains invalid measurement links')
+  }
+  if (photos.some((photo: any) =>
+    typeof photo?.path !== 'string'
+    || photo.path.includes('..')
+    || typeof photo?.base64 !== 'string'
+  )) {
+    throw new Error('The backup contains an invalid photo entry')
+  }
+
+  const currentUsers = await listAllAuthUsers(adminClient)
+  const currentProfiles = await fetchAllRows(adminClient, 'profiles')
+  const currentById = new Map(currentUsers.map((user: any) => [user.id, user]))
+  const currentByEmail = new Map(
+    currentUsers
+      .filter((user: any) => user.email)
+      .map((user: any) => [String(user.email).toLowerCase(), user])
+  )
+  const oldProfileById = new Map(profiles.map((profile: any) => [profile.id, profile]))
+  const idMap = new Map<string, string>()
+  const generatedCredentials: any[] = []
+  const callerUser = currentById.get(callerId)
+  const callerIsInBackup = authUsers.some((oldUser: any) =>
+    oldUser.id === callerId
+    || (callerUser?.email && oldUser.email && String(callerUser.email).toLowerCase() === String(oldUser.email).toLowerCase())
+  )
+  if (!callerIsInBackup) throw new Error('The current administrator is not present in this backup')
+
+  for (const oldUser of authUsers) {
+    const existing = currentById.get(oldUser.id)
+      || (oldUser.email ? currentByEmail.get(String(oldUser.email).toLowerCase()) : null)
+
+    if (existing) {
+      idMap.set(oldUser.id, existing.id)
+      const safeAppMetadata = { ...(oldUser.app_metadata || {}) }
+      delete safeAppMetadata.provider
+      delete safeAppMetadata.providers
+      const updateAttributes: any = {
+        user_metadata: oldUser.user_metadata || {},
+      }
+      if (Object.keys(safeAppMetadata).length) {
+        updateAttributes.app_metadata = { ...(existing.app_metadata || {}), ...safeAppMetadata }
+      }
+      const { error: updateExistingError } = await adminClient.auth.admin.updateUserById(
+        existing.id,
+        updateAttributes
+      )
+      if (updateExistingError) throw updateExistingError
+      continue
+    }
+
+    const temporaryPassword = makeTemporaryPassword()
+    const attributes: any = {
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: oldUser.user_metadata || {},
+    }
+    if (oldUser.email) attributes.email = oldUser.email
+    else if (oldUser.phone) {
+      attributes.phone = oldUser.phone
+      attributes.phone_confirm = true
+    } else {
+      throw new Error(`Cannot restore account ${oldUser.id}: no email or phone`)
+    }
+
+    const { data, error } = await adminClient.auth.admin.createUser(attributes)
+    if (error) throw error
+    const newUser = data.user
+    idMap.set(oldUser.id, newUser.id)
+
+    if (oldUser.app_metadata && Object.keys(oldUser.app_metadata).length) {
+      const safeAppMetadata = { ...oldUser.app_metadata }
+      delete safeAppMetadata.provider
+      delete safeAppMetadata.providers
+      if (Object.keys(safeAppMetadata).length) {
+        const { error: metadataError } = await adminClient.auth.admin.updateUserById(newUser.id, {
+          app_metadata: safeAppMetadata,
+        })
+        if (metadataError) throw metadataError
+      }
+    }
+
+    const oldProfile = oldProfileById.get(oldUser.id)
+    generatedCredentials.push({
+      username: oldProfile?.username || oldUser.email || oldUser.phone,
+      email: oldUser.email || null,
+      temporary_password: temporaryPassword,
+    })
+  }
+
+  const mappedCaller = idMap.get(callerId) || callerId
+  const restoredUserIds = new Set(Array.from(idMap.values()))
+  if (!restoredUserIds.has(mappedCaller)) {
+    throw new Error('The current administrator could not be mapped to the backup')
+  }
+
+  const usersToDelete: string[] = []
+  if (replaceAccounts) {
+    const currentAppProfileIds = new Set(currentProfiles.map((profile: any) => profile.id))
+    for (const currentUser of currentUsers) {
+      if (
+        currentUser.id !== callerId
+        && currentAppProfileIds.has(currentUser.id)
+        && !restoredUserIds.has(currentUser.id)
+      ) {
+        usersToDelete.push(currentUser.id)
+      }
+    }
+  }
+
+  await deleteAllRows(adminClient, 'parameter_entries')
+  await deleteAllRows(adminClient, 'clients')
+  await deleteAllRows(adminClient, 'profiles')
+  await deleteAllRows(adminClient, 'parameters')
+
+  for (const userId of usersToDelete) {
+    const { error } = await adminClient.auth.admin.deleteUser(userId)
+    if (error) throw error
+  }
+
+  const mappedProfiles = profiles.map((profile: any) => ({
+    ...profile,
+    id: idMap.get(profile.id) || profile.id,
+    created_by: null,
+  }))
+  await upsertRows(adminClient, 'profiles', mappedProfiles)
+
+  for (const profile of profiles) {
+    if (!profile.created_by) continue
+    const mappedId = idMap.get(profile.id) || profile.id
+    const mappedParent = idMap.get(profile.created_by) || profile.created_by
+    const { error } = await adminClient.from('profiles').update({ created_by: mappedParent }).eq('id', mappedId)
+    if (error) throw error
+  }
+
+  await upsertRows(adminClient, 'parameters', parameters)
+
+  const mappedClients = clients.map((client: any) => ({
+    ...client,
+    owner_id: client.owner_id ? (idMap.get(client.owner_id) || client.owner_id) : null,
+    user_id: client.user_id ? (idMap.get(client.user_id) || client.user_id) : null,
+  }))
+  await upsertRows(adminClient, 'clients', mappedClients)
+  await upsertRows(adminClient, 'parameter_entries', entries)
+
+  const existingObjects = await listStorageObjects(adminClient)
+  for (let offset = 0; offset < existingObjects.length; offset += 100) {
+    const paths = existingObjects.slice(offset, offset + 100).map((item: any) => item.path)
+    if (!paths.length) continue
+    const { error } = await adminClient.storage.from('client-photos').remove(paths)
+    if (error) throw error
+  }
+
+  for (const photo of photos) {
+    if (!photo?.path || !photo?.base64) continue
+    const { error } = await adminClient.storage.from('client-photos').upload(
+      photo.path,
+      base64ToBytes(photo.base64),
+      { contentType: photo.content_type || 'application/octet-stream', upsert: true }
+    )
+    if (error) throw error
+  }
+
+  return {
+    generated_credentials: generatedCredentials,
+    counts: {
+      accounts: mappedProfiles.length,
+      clients: mappedClients.length,
+      parameters: parameters.length,
+      entries: entries.length,
+      photos: photos.length,
+    },
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
   if (req.method !== 'POST') return json(req, { error: 'Method not allowed' }, 405)
@@ -155,6 +522,24 @@ Deno.serve(async (req) => {
     })
     const body = await req.json()
     const action = body.action || 'create'
+
+
+    if (action === 'backup_all') {
+      if (callerProfile.role !== 'admin') return json(req, { error: 'Administrator access required' }, 403)
+      const backup = await createFullBackup(adminClient)
+      return json(req, { ok: true, backup })
+    }
+
+    if (action === 'restore_all') {
+      if (callerProfile.role !== 'admin') return json(req, { error: 'Administrator access required' }, 403)
+      const result = await restoreFullBackup(
+        adminClient,
+        body.backup,
+        caller.id,
+        body.replace_accounts !== false
+      )
+      return json(req, { ok: true, ...result })
+    }
 
     if (action === 'delete_client_photo') {
       const clientId = String(body.client_id || '')
@@ -321,53 +706,17 @@ Deno.serve(async (req) => {
       if (target.role === 'admin') return json(req, { error: 'Cannot change an administrator role' }, 403)
       if (target.role === newRole) return json(req, { ok: true })
 
-      const newOwner = target.created_by || caller.id
-
-      if (newRole === 'client') {
-        const { error: reassignError } = await adminClient
-          .from('clients')
-          .update({ owner_id: newOwner })
-          .eq('owner_id', targetUserId)
-        if (reassignError) throw reassignError
-
-        const { error: reassignChildrenError } = await adminClient
-          .from('profiles')
-          .update({ created_by: newOwner })
-          .eq('created_by', targetUserId)
-        if (reassignChildrenError) throw reassignChildrenError
-      }
-
-      const { data: existingOwnClient, error: ownClientError } = await adminClient
-        .from('clients')
-        .select('id')
-        .eq('user_id', targetUserId)
-        .maybeSingle()
-      if (ownClientError) throw ownClientError
-
-      if (existingOwnClient) {
-        const { error: syncClientError } = await adminClient
-          .from('clients')
-          .update({
-            full_name: target.full_name || target.username,
-            owner_id: newOwner,
-          })
-          .eq('id', existingOwnClient.id)
-        if (syncClientError) throw syncClientError
-      } else {
-        const { error: createClientError } = await adminClient.from('clients').insert({
-          full_name: target.full_name || target.username,
-          owner_id: newOwner,
-          user_id: targetUserId,
-        })
-        if (createClientError) throw createClientError
-      }
-
-      const { error: roleError } = await adminClient
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', targetUserId)
+      const { data: linkedClientId, error: roleError } = await adminClient.rpc(
+        'change_account_role',
+        {
+          p_target_user_id: targetUserId,
+          p_new_role: newRole,
+          p_fallback_owner_id: caller.id,
+        }
+      )
       if (roleError) throw roleError
-      return json(req, { ok: true })
+
+      return json(req, { ok: true, client_id: linkedClientId })
     }
 
     if (action !== 'create') return json(req, { error: 'Unknown action' }, 400)

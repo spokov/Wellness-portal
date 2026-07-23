@@ -6,6 +6,7 @@ import ParameterGroupPage from './pages/ParameterGroupPage.jsx'
 import Settings from './pages/Settings.jsx'
 import Accounts from './pages/Accounts.jsx'
 import Hierarchy from './pages/Hierarchy.jsx'
+import BackupRestore from './pages/BackupRestore.jsx'
 import Login from './pages/Login.jsx'
 import ClientPortal from './pages/ClientPortal.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
@@ -18,7 +19,7 @@ function useBackTarget(t, isClientRole) {
   const location = useLocation()
   const segments = location.pathname.split('/').filter(Boolean)
 
-  if (['settings', 'accounts', 'hierarchy'].includes(segments[0])) {
+  if (['settings', 'accounts', 'hierarchy', 'backup'].includes(segments[0])) {
     return { to: '/', label: t('backToHome') }
   }
   if (segments[0] === 'client' && segments.length === 2) {
@@ -39,7 +40,6 @@ function TopMenu() {
   const location = useLocation()
   const menuRef = useRef(null)
   const isClientRole = profile?.role === 'client'
-  const back = useBackTarget(t, isClientRole)
 
   useEffect(() => setOpen(false), [location.pathname])
 
@@ -101,11 +101,11 @@ function TopMenu() {
               )}
             </p>
           </div>
-          {back && navLink(back.to, back.label)}
           {navLink('/', t('navHome'))}
           {!isClientRole && navLink('/accounts', t('navAccounts'))}
           {profile?.role === 'admin' && navLink('/hierarchy', t('navHierarchy'))}
           {profile?.role === 'admin' && navLink('/settings', t('navSettings'))}
+          {profile?.role === 'admin' && navLink('/backup', t('navBackup'))}
           <button
             type="button"
             onClick={() => signOut()}
@@ -115,6 +115,27 @@ function TopMenu() {
           </button>
         </nav>
       )}
+    </div>
+  )
+}
+
+
+function VisibleBackButton() {
+  const { t } = useLanguage()
+  const { profile } = useAuth()
+  const back = useBackTarget(t, profile?.role === 'client')
+
+  if (!back) return null
+
+  return (
+    <div className="mb-4 no-print">
+      <Link
+        to={back.to}
+        className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-line bg-card px-4 py-2 text-sm font-semibold text-ink shadow-sm transition-colors hover:border-ledger/50 hover:bg-white hover:text-ledger"
+      >
+        <span aria-hidden="true">←</span>
+        <span>{back.label.replace(/^←\s*/, '')}</span>
+      </Link>
     </div>
   )
 }
@@ -144,6 +165,7 @@ function PageShell({ children, authenticated = false }) {
       <LanguageSwitcher />
       <Banner />
       <main id="main-content" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        {authenticated && <VisibleBackButton />}
         {children}
       </main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-ink-soft/70 sm:px-6">
@@ -221,6 +243,7 @@ export default function App() {
           <Route path="/accounts" element={<Accounts />} />
           {profile.role === 'admin' && <Route path="/hierarchy" element={<Hierarchy />} />}
           {profile.role === 'admin' && <Route path="/settings" element={<Settings />} />}
+          {profile.role === 'admin' && <Route path="/backup" element={<BackupRestore />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}

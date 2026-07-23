@@ -12,6 +12,7 @@ export const translations = {
     navHome: 'Начало',
     navSettings: 'Настройки на параметрите',
     navHierarchy: 'Структура',
+    navBackup: 'Backup и Restore',
 
     // common
     loading: 'Зареждане...',
@@ -169,6 +170,28 @@ export const translations = {
     viewOnly: 'Само преглед',
     noProfileYet: 'Този акаунт все още няма профил. Помоли администратор да го довърши.',
 
+
+
+    // backup / restore
+    backupTitle: 'Пълен архив и възстановяване',
+    backupDescription: 'Администраторски архив на акаунтите, клиентските профили, параметрите, измерванията и снимките.',
+    createBackupTitle: 'Създаване на backup',
+    createBackupHelp: 'Изтегля JSON файл с цялата информация на Wellness Portal. Съхранявай файла на защитено място, защото съдържа лични данни.',
+    downloadBackup: 'Изтегли пълен backup',
+    backupCreated: 'Backup файлът е създаден и изтеглен успешно.',
+    restoreBackupTitle: 'Възстановяване от backup',
+    restoreBackupHelp: 'Възстановяването заменя текущите данни и акаунти с данните от избрания архив. Направи нов backup преди тази операция.',
+    chooseBackupFile: 'Избери backup файл',
+    restoreConfirmationLabel: 'Напиши RESTORE, за да потвърдиш необратимата операция',
+    restoreBackupButton: 'Възстанови всички данни',
+    restoreCompleted: 'Възстановени са {accounts} акаунта, {clients} клиента и {entries} измервания.',
+    invalidBackupFile: 'Файлът не е валиден JSON backup на Wellness Portal.',
+    backupFileTooLarge: 'Backup файлът е по-голям от 40 MB и не може да бъде обработен през браузъра.',
+    passwordBackupWarningTitle: 'Важно за паролите',
+    passwordBackupWarning: 'Supabase не предоставя паролните хешове през Admin API. При възстановяване в същия проект съществуващите акаунти запазват паролите си. За липсващи акаунти се създават временни пароли.',
+    temporaryPasswordsTitle: 'Създадени временни пароли',
+    temporaryPasswordsNote: 'Предай временните пароли по сигурен канал и ги смени веднага след първото влизане.',
+    downloadTemporaryPasswords: 'Изтегли временните пароли',
     // roles
     roleAdmin: 'Администратор',
     roleTrainer: 'Треньор',
@@ -213,6 +236,7 @@ export const translations = {
     navHome: 'Home',
     navSettings: 'Parameter settings',
     navHierarchy: 'Structure',
+    navBackup: 'Backup & Restore',
 
     // common
     loading: 'Loading...',
@@ -369,6 +393,28 @@ export const translations = {
     viewOnly: 'View only',
     noProfileYet: 'This account has no profile yet. Ask an admin to finish setting it up.',
 
+
+
+    // backup / restore
+    backupTitle: 'Full backup and restore',
+    backupDescription: 'Administrator backup of accounts, client profiles, parameters, measurements, and photos.',
+    createBackupTitle: 'Create backup',
+    createBackupHelp: 'Downloads a JSON file containing all Wellness Portal information. Store it securely because it contains personal data.',
+    downloadBackup: 'Download full backup',
+    backupCreated: 'The backup file was created and downloaded successfully.',
+    restoreBackupTitle: 'Restore from backup',
+    restoreBackupHelp: 'Restoring replaces the current data and accounts with the selected archive. Create a fresh backup before proceeding.',
+    chooseBackupFile: 'Choose backup file',
+    restoreConfirmationLabel: 'Type RESTORE to confirm this irreversible operation',
+    restoreBackupButton: 'Restore all data',
+    restoreCompleted: 'Restored {accounts} accounts, {clients} clients, and {entries} measurements.',
+    invalidBackupFile: 'The file is not a valid Wellness Portal JSON backup.',
+    backupFileTooLarge: 'The backup file is larger than 40 MB and cannot be processed in the browser.',
+    passwordBackupWarningTitle: 'Important password limitation',
+    passwordBackupWarning: 'Supabase does not expose password hashes through the Admin API. Existing accounts keep their passwords when restored in the same project. Missing accounts receive temporary passwords.',
+    temporaryPasswordsTitle: 'Temporary passwords created',
+    temporaryPasswordsNote: 'Share temporary passwords through a secure channel and change them immediately after the first sign-in.',
+    downloadTemporaryPasswords: 'Download temporary passwords',
     // roles
     roleAdmin: 'Admin',
     roleTrainer: 'Trainer',

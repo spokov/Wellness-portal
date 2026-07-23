@@ -4,6 +4,7 @@ import { parseCSV, toCSV } from '../lib/csv.js'
 import { calcAgeAt } from '../lib/format.js'
 import { classifyFatPercent, isFatParameterName } from '../lib/fatReference.js'
 import StatusMessage from './StatusMessage.jsx'
+import { printElement } from '../lib/print.js'
 
 const FAT_COLOR_CLASSES = {
   excellent: 'text-emerald-700',
@@ -26,6 +27,7 @@ export default function HistoryModal({
   clientHeight,
   clientGender,
   readOnly = false,
+  allowTransfer = true,
 }) {
   const { t, formatDate } = useLanguage()
   const [importMessage, setImportMessage] = useState(null)
@@ -170,9 +172,9 @@ export default function HistoryModal({
             {clientName && <p className="truncate text-xs text-ink-soft">{clientName}</p>}
           </div>
           <div className="flex flex-shrink-0 items-center gap-1">
-            <button type="button" onClick={() => window.print()} className="toolbar-button">{t('printButton')}</button>
-            <button type="button" onClick={handleExport} className="toolbar-button">{t('exportButton')}</button>
-            {!readOnly && (
+            <button type="button" onClick={() => printElement('history-print-area')} className="toolbar-button">{t('printButton')}</button>
+            {allowTransfer && <button type="button" onClick={handleExport} className="toolbar-button">{t('exportButton')}</button>}
+            {allowTransfer && !readOnly && (
               <button type="button" onClick={handleImportClick} disabled={importing} className="toolbar-button">
                 {importing ? t('saving') : t('importButton')}
               </button>
@@ -191,7 +193,7 @@ export default function HistoryModal({
           </div>
         )}
 
-        <div className="printable-area overflow-auto p-4 sm:p-6">
+        <div id="history-print-area" className="printable-area overflow-auto p-4 sm:p-6">
           <div className="mb-4">
             <p className="font-display text-xl font-semibold text-ink">{clientName}</p>
             <p className="mt-1 font-mono text-xs text-ink-soft">

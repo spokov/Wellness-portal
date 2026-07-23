@@ -285,11 +285,12 @@ export default function ParameterGroupPage() {
             clientHeight={client?.height_cm}
             clientGender={client?.gender}
             readOnly={readOnly}
-            dateInHeader={category === 'tanita'}
+            dateInHeader
             measurementDate={date}
             onMeasurementDateChange={setDate}
             addDisabled={!hasAnyNewValue}
             saving={saving}
+            allowHistoryTransfer={profile.role !== 'client'}
           />
         </form>
       )}

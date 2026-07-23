@@ -150,27 +150,55 @@ button:disabled {
 
 @media print {
   @page {
-    margin: 12mm;
+    margin: 10mm;
   }
 
+  html,
   body {
+    min-width: 0 !important;
+    min-height: 0 !important;
     background: white !important;
   }
 
-  body * {
-    visibility: hidden;
-  }
-
-  .printable-area,
-  .printable-area * {
-    visibility: visible;
-  }
-
-  .printable-area {
-    position: absolute;
-    inset: 0 auto auto 0;
-    width: 100%;
+  body.print-mode .print-branch {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  body.print-mode .print-branch > *:not(.print-branch):not(.print-target) {
+    display: none !important;
+  }
+
+  body.print-mode .print-target {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
 
   .print-flow {
@@ -189,6 +217,12 @@ button:disabled {
 
   table {
     font-size: 10pt;
+  }
+
+  tr,
+  th,
+  td {
+    break-inside: avoid;
   }
 
   th,

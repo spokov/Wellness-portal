@@ -21,6 +21,7 @@ export default function ParametersTable({
   onMeasurementDateChange,
   addDisabled = false,
   saving = false,
+  allowHistoryTransfer = true,
 }) {
   const { t, formatDate } = useLanguage()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -129,6 +130,7 @@ export default function ParametersTable({
         clientHeight={clientHeight}
         clientGender={clientGender}
         readOnly={readOnly}
+        allowTransfer={allowHistoryTransfer}
       />
     </div>
   )
