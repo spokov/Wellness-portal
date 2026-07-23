@@ -1,7 +1,7 @@
 -- ============================================================
 -- WELLNESS PORTAL — АКТУАЛНА ПЪЛНА СХЕМА
 -- За НОВ Supabase проект изпълни само този файл.
--- За съществуващ проект изпълни migration_9.sql вместо този файл.
+-- За съществуващ проект изпълни migration_9.sql и migration_10.sql вместо този файл.
 -- ============================================================
 
 begin;
@@ -228,6 +228,32 @@ drop trigger if exists protect_client_relationships_trigger on public.clients;
 create trigger protect_client_relationships_trigger
 before update on public.clients
 for each row execute function public.protect_client_relationships();
+
+-- Свързаният клиентски запис е източникът на клиентската информация за акаунта.
+create or replace function public.sync_linked_client_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.user_id is not null then
+    update public.profiles
+    set full_name = new.full_name,
+        email = coalesce(new.email, email)
+    where id = new.user_id;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_linked_client_profile() from public;
+grant execute on function public.sync_linked_client_profile() to authenticated, service_role;
+
+drop trigger if exists sync_linked_client_profile_trigger on public.clients;
+create trigger sync_linked_client_profile_trigger
+after insert or update of full_name, email, user_id on public.clients
+for each row execute function public.sync_linked_client_profile();
 
 -- ---------- Row Level Security ----------
 alter table public.profiles enable row level security;

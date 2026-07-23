@@ -321,18 +321,9 @@ Deno.serve(async (req) => {
       if (target.role === 'admin') return json(req, { error: 'Cannot change an administrator role' }, 403)
       if (target.role === newRole) return json(req, { ok: true })
 
-      if (newRole === 'trainer') {
-        // Preserve historical measurements, but detach the former client record
-        // so the promoted account does not retain client-only access through user_id.
-        const { error: unlinkClientError } = await adminClient
-          .from('clients')
-          .update({ user_id: null })
-          .eq('user_id', targetUserId)
-        if (unlinkClientError) throw unlinkClientError
-      }
+      const newOwner = target.created_by || caller.id
 
       if (newRole === 'client') {
-        const newOwner = target.created_by || caller.id
         const { error: reassignError } = await adminClient
           .from('clients')
           .update({ owner_id: newOwner })
@@ -344,22 +335,31 @@ Deno.serve(async (req) => {
           .update({ created_by: newOwner })
           .eq('created_by', targetUserId)
         if (reassignChildrenError) throw reassignChildrenError
+      }
 
-        const { data: existingOwnClient, error: ownClientError } = await adminClient
+      const { data: existingOwnClient, error: ownClientError } = await adminClient
+        .from('clients')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .maybeSingle()
+      if (ownClientError) throw ownClientError
+
+      if (existingOwnClient) {
+        const { error: syncClientError } = await adminClient
           .from('clients')
-          .select('id')
-          .eq('user_id', targetUserId)
-          .maybeSingle()
-        if (ownClientError) throw ownClientError
-
-        if (!existingOwnClient) {
-          const { error: createClientError } = await adminClient.from('clients').insert({
+          .update({
             full_name: target.full_name || target.username,
             owner_id: newOwner,
-            user_id: targetUserId,
           })
-          if (createClientError) throw createClientError
-        }
+          .eq('id', existingOwnClient.id)
+        if (syncClientError) throw syncClientError
+      } else {
+        const { error: createClientError } = await adminClient.from('clients').insert({
+          full_name: target.full_name || target.username,
+          owner_id: newOwner,
+          user_id: targetUserId,
+        })
+        if (createClientError) throw createClientError
       }
 
       const { error: roleError } = await adminClient
@@ -423,7 +423,7 @@ Deno.serve(async (req) => {
       })
       if (profileError) throw profileError
 
-      if (role === 'client') {
+      if (role === 'client' || role === 'trainer') {
         const { data: clientRow, error: clientError } = await adminClient
           .from('clients')
           .insert({ full_name: fullName, owner_id: caller.id, user_id: newUserId })

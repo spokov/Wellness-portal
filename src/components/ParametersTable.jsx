@@ -17,6 +17,10 @@ export default function ParametersTable({
   clientGender,
   dateInHeader = false,
   readOnly = false,
+  measurementDate,
+  onMeasurementDateChange,
+  addDisabled = false,
+  saving = false,
 }) {
   const { t, formatDate } = useLanguage()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -31,13 +35,33 @@ export default function ParametersTable({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-ink-soft">
           {readOnly ? t('viewOnly') : t('measurementInputHelp')}
         </p>
-        <button type="button" onClick={() => setHistoryOpen(true)} className="btn-secondary whitespace-nowrap">
-          {t('historyButton')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          {!readOnly && (
+            <>
+              <label className="flex items-center gap-2">
+                <span className="font-mono text-[11px] uppercase tracking-wide text-ink-soft">{t('measurementDate')}</span>
+                <input
+                  className="input w-40"
+                  type="date"
+                  max={new Date().toISOString().slice(0, 10)}
+                  value={measurementDate}
+                  onChange={(event) => onMeasurementDateChange(event.target.value)}
+                  required
+                />
+              </label>
+              <button type="submit" disabled={saving || addDisabled} className="btn-primary whitespace-nowrap">
+                {saving ? t('saving') : t('addAll')}
+              </button>
+            </>
+          )}
+          <button type="button" onClick={() => setHistoryOpen(true)} className="btn-secondary whitespace-nowrap">
+            {t('historyButton')}
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-line bg-card shadow-sm">

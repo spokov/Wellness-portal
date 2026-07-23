@@ -199,3 +199,13 @@ supabase/migration_9.sql              обновяване на съществу
 supabase/functions/manage-account/    защитено управление на акаунти
 TECHNICAL_REPORT_BG.md                 технически анализ на версия 2.0
 ```
+
+## Обновяване до версия 2.2
+
+След `migration_9.sql` изпълнете `supabase/migration_10.sql`, след което публикувайте отново Edge Function-а:
+
+```bash
+supabase functions deploy manage-account --no-verify-jwt
+```
+
+Миграцията създава или свързва един клиентски запис за всеки акаунт с роля `trainer` или `client`.

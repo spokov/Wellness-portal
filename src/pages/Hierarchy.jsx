@@ -55,13 +55,25 @@ export default function Hierarchy() {
     if (!moveNode) return false
     setError('')
 
-    const result = moveNode.type === 'client'
-      ? await supabase.from('clients').update({ owner_id: newParentId }).eq('id', moveNode.id)
-      : await supabase.from('profiles').update({ created_by: newParentId }).eq('id', moveNode.id)
+    if (moveNode.type === 'client') {
+      const result = await supabase.from('clients').update({ owner_id: newParentId }).eq('id', moveNode.id)
+      if (result.error) {
+        setError(result.error.message)
+        return false
+      }
+    } else {
+      const profileResult = await supabase.from('profiles').update({ created_by: newParentId }).eq('id', moveNode.id)
+      if (profileResult.error) {
+        setError(profileResult.error.message)
+        return false
+      }
 
-    if (result.error) {
-      setError(result.error.message)
-      return false
+      // Keep the account's client information under the same parent.
+      const clientResult = await supabase.from('clients').update({ owner_id: newParentId }).eq('user_id', moveNode.id)
+      if (clientResult.error) {
+        setError(clientResult.error.message)
+        return false
+      }
     }
 
     setMoveNode(null)
@@ -128,9 +140,18 @@ function buildTreeData(profiles, clients) {
   const staff = profiles.filter((profile) => profile.role !== 'client')
   const staffIds = new Set(staff.map((profile) => profile.id))
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
+  const linkedClientByUserId = new Map(
+    clients.filter((client) => client.user_id).map((client) => [client.user_id, client])
+  )
   const childrenOf = new Map()
 
-  for (const profile of staff) {
+  const enrichedStaff = staff.map((profile) => ({
+    ...profile,
+    client: linkedClientByUserId.get(profile.id) || null,
+  }))
+  const enrichedStaffById = new Map(enrichedStaff.map((profile) => [profile.id, profile]))
+
+  for (const profile of enrichedStaff) {
     if (profile.created_by && staffIds.has(profile.created_by)) {
       if (!childrenOf.has(profile.created_by)) childrenOf.set(profile.created_by, [])
       childrenOf.get(profile.created_by).push(profile)
@@ -143,25 +164,36 @@ function buildTreeData(profiles, clients) {
 
   const clientsOf = new Map()
   for (const client of clients) {
+    // A linked account is represented by exactly one hierarchy node.
+    // Staff accounts are enriched above; client accounts remain client nodes.
     if (client.user_id && staffIds.has(client.user_id)) continue
     if (!client.owner_id) continue
+
+    const account = client.user_id ? profileById.get(client.user_id) : null
+    const hierarchyClient = {
+      ...client,
+      full_name: account?.full_name || client.full_name,
+      username: account?.username || null,
+      role: account?.role || 'client',
+    }
+
     if (!clientsOf.has(client.owner_id)) clientsOf.set(client.owner_id, [])
-    clientsOf.get(client.owner_id).push(client)
+    clientsOf.get(client.owner_id).push(hierarchyClient)
   }
 
   for (const ownedClients of clientsOf.values()) {
     ownedClients.sort((a, b) => String(a.full_name).localeCompare(String(b.full_name)))
   }
 
-  const roots = staff
-    .filter((profile) => !profile.created_by || !profileById.has(profile.created_by))
+  const roots = enrichedStaff
+    .filter((profile) => !profile.created_by || !enrichedStaffById.has(profile.created_by))
     .sort((a, b) => {
       if (a.role === 'admin' && b.role !== 'admin') return -1
       if (a.role !== 'admin' && b.role === 'admin') return 1
       return String(a.full_name || a.username).localeCompare(String(b.full_name || b.username))
     })
 
-  return { staff, childrenOf, clientsOf, roots }
+  return { staff: enrichedStaff, childrenOf, clientsOf, roots }
 }
 
 function TreeNode({ profile, childrenOf, clientsOf, t, onMove }) {
@@ -172,7 +204,16 @@ function TreeNode({ profile, childrenOf, clientsOf, t, onMove }) {
     <div className="mb-1">
       <div className="flex items-center gap-2 py-2">
         <span className="text-lg leading-none" aria-hidden="true">{ROLE_ICON[profile.role] || '🧑‍🏫'}</span>
-        <span className="font-display font-medium text-ink">{profile.full_name || profile.username}</span>
+        {profile.client ? (
+          <Link to={`/client/${profile.client.id}`} className="font-display font-medium text-ink hover:text-ledger">
+            {profile.full_name || profile.username}
+          </Link>
+        ) : (
+          <span className="font-display font-medium text-ink">{profile.full_name || profile.username}</span>
+        )}
+        {profile.client?.phone && (
+          <span className="whitespace-nowrap font-mono text-xs text-ink-soft">{profile.client.phone}</span>
+        )}
         <span className="font-mono text-xs text-ink-soft">@{profile.username}</span>
         <span className="rounded bg-ledger/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-ledger">
           {t(ROLE_LABEL_KEY[profile.role] || 'roleTrainer')}

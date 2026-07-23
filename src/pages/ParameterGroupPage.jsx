@@ -286,19 +286,11 @@ export default function ParameterGroupPage() {
             clientGender={client?.gender}
             readOnly={readOnly}
             dateInHeader={category === 'tanita'}
+            measurementDate={date}
+            onMeasurementDateChange={setDate}
+            addDisabled={!hasAnyNewValue}
+            saving={saving}
           />
-
-          {!readOnly && (
-            <div className="sticky bottom-3 z-20 mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-card/95 p-3 shadow-lg backdrop-blur sm:p-4">
-              <label className="flex items-center gap-3">
-                <span className="font-mono text-[11px] uppercase tracking-wide text-ink-soft">{t('measurementDate')}</span>
-                <input className="input w-40" type="date" max={todayISO()} value={date} onChange={(event) => setDate(event.target.value)} required />
-              </label>
-              <button type="submit" disabled={saving || !hasAnyNewValue} className="btn-primary ml-auto">
-                {saving ? t('saving') : t('addAll')}
-              </button>
-            </div>
-          )}
         </form>
       )}
     </div>
