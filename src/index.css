@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f6f5f1;
+  color: #1c2333;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.font-display {
+  font-family: 'Source Serif 4', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink shadow-sm transition-colors placeholder:text-ink-soft/55;
+  }
+
+  .input:focus {
+    @apply border-ledger outline-none ring-2 ring-ledger/15;
+  }
+
+  .input:disabled,
+  .input[readonly] {
+    @apply cursor-not-allowed bg-paper text-ink-soft;
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-10 items-center justify-center rounded-lg bg-ledger px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-ledger-dark hover:shadow disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-10 items-center justify-center rounded-lg border border-line bg-card px-4 py-2 text-sm font-semibold text-ink shadow-sm transition-colors hover:border-ledger/50 hover:bg-paper disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex min-h-10 items-center justify-center rounded-lg bg-stamp px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-90 disabled:opacity-50;
+  }
+
+  .btn-danger-outline {
+    @apply inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-stamp transition-colors hover:bg-red-50 disabled:opacity-50;
+  }
+
+  .icon-button {
+    @apply flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-paper hover:text-ink disabled:opacity-50;
+  }
+
+  .toolbar-button {
+    @apply rounded-md px-2 py-1.5 font-mono text-[11px] uppercase tracking-wide text-ink-soft transition-colors hover:bg-paper hover:text-ledger disabled:opacity-50;
+  }
+
+  .password-toggle {
+    @apply absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[11px] font-medium text-ledger hover:bg-ledger/10;
+  }
+
+  .page-title {
+    @apply font-display text-3xl font-semibold leading-tight text-ink sm:text-4xl;
+  }
+
+  .page-subtitle {
+    @apply mt-1 max-w-2xl text-sm leading-6 text-ink-soft;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.16em] text-ledger;
+  }
+}
+
+.card-tab {
+  position: relative;
+}
+
+.card-tab::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 20px;
+  width: 48px;
+  height: 8px;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(90deg, #2e4374, #526ba3);
+}
+
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 100;
+  transform: translate(-50%, -150%);
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: #1e2d50;
+  padding: 0.65rem 1rem;
+  color: white;
+  font-size: 0.875rem;
+  transition: transform 150ms ease;
+}
+
+.skip-link:focus {
+  transform: translate(-50%, 0);
+}
+
+::selection {
+  background: #2e4374;
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid #2e4374;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  header img {
+    min-height: 92px;
+    object-fit: cover;
+    object-position: center;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .printable-area,
+  .printable-area * {
+    visibility: visible;
+  }
+
+  .printable-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0 !important;
+  }
+
+  .print-flow {
+    position: static !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  table {
+    font-size: 10pt;
+  }
+
+  th,
+  td {
+    position: static !important;
+    background: white !important;
+  }
+}
