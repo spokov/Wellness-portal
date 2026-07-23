@@ -1,0 +1,6 @@
+# The manage-account function validates the caller inside the handler with
+# supabase.auth.getUser(). Disable the Edge gateway's legacy JWT pre-check so
+# projects using rotated/asymmetric ES256 signing keys and publishable API keys
+# are not rejected before the handler runs.
+[functions.manage-account]
+verify_jwt = false

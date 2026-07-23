@@ -84,7 +84,7 @@ values (
 npm install -g supabase
 supabase login
 supabase link --project-ref YOUR-PROJECT-REF
-supabase functions deploy manage-account
+supabase functions deploy manage-account --no-verify-jwt
 ```
 
 Supabase предоставя автоматично `SUPABASE_URL`, `SUPABASE_ANON_KEY` и
@@ -95,7 +95,7 @@ frontend `.env` файла.
 
 ```bash
 supabase secrets set ALLOWED_ORIGIN=https://your-domain.example
-supabase functions deploy manage-account
+supabase functions deploy manage-account --no-verify-jwt
 ```
 
 ## 4. Настрой frontend средата
@@ -138,7 +138,7 @@ supabase/migration_9.sql
 3. Качи отново функцията:
 
 ```bash
-supabase functions deploy manage-account
+supabase functions deploy manage-account --no-verify-jwt
 ```
 
 4. Деплойни новия frontend код.
@@ -183,7 +183,7 @@ variables. `vercel.json` съдържа необходимия SPA rewrite.
   приложиш още по-строга политика в Supabase Auth.
 - Преди всяка SQL миграция направи backup.
 - След промяна на `supabase/functions/manage-account/index.ts` винаги изпълнявай
-  нов `supabase functions deploy manage-account`.
+  нов `supabase functions deploy manage-account --no-verify-jwt`.
 - Снимките са ограничени до JPG, PNG или WebP и максимум 5 MB.
 - CSV импортът е ограничен до 2 MB и отхвърля невалидни/бъдещи дати.
 
