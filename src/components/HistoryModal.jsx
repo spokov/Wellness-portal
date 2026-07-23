@@ -5,6 +5,7 @@ import { calcAgeAt } from '../lib/format.js'
 import { classifyFatPercent, isFatParameterName } from '../lib/fatReference.js'
 import StatusMessage from './StatusMessage.jsx'
 import { printElement } from '../lib/print.js'
+import { parameterLabel, parameterSearchNames } from '../lib/parameters.js'
 
 const FAT_COLOR_CLASSES = {
   excellent: 'text-emerald-700',
@@ -29,7 +30,7 @@ export default function HistoryModal({
   readOnly = false,
   allowTransfer = true,
 }) {
-  const { t, formatDate } = useLanguage()
+  const { t, formatDate, lang } = useLanguage()
   const [importMessage, setImportMessage] = useState(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -61,7 +62,7 @@ export default function HistoryModal({
     const rows = parameters.map((parameter) => {
       const entries = entriesByParam[parameter.id] || []
       const byDate = Object.fromEntries(entries.map((entry) => [entry.recorded_at, entry]))
-      return [parameter.name, ...allDates.map((date) => byDate[date]?.value ?? '')]
+      return [parameterLabel(parameter, lang), ...allDates.map((date) => byDate[date]?.value ?? '')]
     })
 
     const blob = new Blob(['\uFEFF', toCSV([header, ...rows])], { type: 'text/csv;charset=utf-8' })
@@ -103,7 +104,7 @@ export default function HistoryModal({
         const [header, ...dataRows] = rows
         const dateColumns = header.slice(1).map((value) => value.trim())
         const nameToParameter = new Map(
-          parameters.map((parameter) => [parameter.name.trim().toLocaleLowerCase(), parameter])
+          parameters.flatMap((parameter) => parameterSearchNames(parameter).map((name) => [name.toLocaleLowerCase(), parameter]))
         )
 
         const entries = []
@@ -204,7 +205,7 @@ export default function HistoryModal({
             </p>
           </div>
 
-          {parameters.some((parameter) => isFatParameterName(parameter.name)) && (
+          {parameters.some((parameter) => parameterSearchNames(parameter).some(isFatParameterName)) && (
             <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono">
               <LegendDot className="bg-emerald-600" label={t('fatExcellent')} />
               <LegendDot className="bg-sky-500" label={t('fatGood')} />
@@ -240,11 +241,11 @@ export default function HistoryModal({
                   {parameters.map((parameter) => {
                     const entries = entriesByParam[parameter.id] || []
                     const byDate = Object.fromEntries(entries.map((entry) => [entry.recorded_at, entry]))
-                    const isFat = isFatParameterName(parameter.name)
+                    const isFat = parameterSearchNames(parameter).some(isFatParameterName)
 
                     return (
                       <tr key={parameter.id} className="border-b border-line/60 last:border-0 hover:bg-paper/30">
-                        <td className="sticky left-0 z-10 whitespace-nowrap bg-card py-3 pl-4 pr-4 font-display font-medium text-ink">{parameter.name}</td>
+                        <td className="sticky left-0 z-10 whitespace-nowrap bg-card py-3 pl-4 pr-4 font-display font-medium text-ink">{parameterLabel(parameter, lang)}</td>
                         {allDates.map((date) => {
                           const entry = byDate[date]
                           const classification = isFat && entry

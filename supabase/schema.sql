@@ -28,41 +28,42 @@ create index if not exists idx_clients_full_name on clients (full_name);
 create table if not exists parameters (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
+  name_en     text not null default '',
   value_type  text not null check (value_type in ('number', 'text')) default 'text',
   category    text not null check (category in ('tanita', 'body')),
   sort_order  int not null
 );
 
 -- Начални 10 параметъра за групата "Tanita измервания" (преименувай при нужда)
-insert into parameters (name, value_type, category, sort_order)
-select name, 'number', 'tanita', row_number() over ()
+insert into parameters (name, name_en, value_type, category, sort_order)
+select name, name_en, 'number', 'tanita', row_number() over ()
 from (values
-  ('Тегло'),
-  ('BMI (%)'),
-  ('Мазнини (%)'),
-  ('Вътрешни мазнини'),
-  ('Мускулна маса (кг)'),
-  ('Индекс на тялото'),
-  ('Костна маса (кг)'),
-  ('Базов метаболизъм (ккал)'),
-  ('Метаболитна възраст'),
-  ('Вода в тялото (%)')
-) as v(name)
+  ('Тегло', 'Weight'),
+  ('BMI (%)', 'BMI (%)'),
+  ('Мазнини (%)', 'Body fat (%)'),
+  ('Вътрешни мазнини', 'Visceral fat'),
+  ('Мускулна маса (кг)', 'Muscle mass (kg)'),
+  ('Индекс на тялото', 'Physique rating'),
+  ('Костна маса (кг)', 'Bone mass (kg)'),
+  ('Базов метаболизъм (ккал)', 'Basal metabolic rate (kcal)'),
+  ('Метаболитна възраст', 'Metabolic age'),
+  ('Вода в тялото (%)', 'Body water (%)')
+) as v(name, name_en)
 where not exists (select 1 from parameters);
 
 -- Начални 5 параметъра за групата "Мерки на тялото"
-insert into parameters (name, value_type, category, sort_order)
-select name, 'number', 'body', row_number() over ()
+insert into parameters (name, name_en, value_type, category, sort_order)
+select name, name_en, 'number', 'body', row_number() over ()
 from (values
-  ('Обиколка Бюст (см)'),
-  ('Обиколка Ръка (см)'),
-  ('Обиколка Талия (см)'),
-  ('Обиколка Корем (см)'),
-  ('Обиколка Ханш (см)'),
-  ('Обиколка Бедро (см)'),
-  ('Обиколка Коляно (см)'),
-  ('Тегло (кг)')
-) as v(name)
+  ('Обиколка Бюст (см)', 'Bust circumference (cm)'),
+  ('Обиколка Ръка (см)', 'Arm circumference (cm)'),
+  ('Обиколка Талия (см)', 'Waist circumference (cm)'),
+  ('Обиколка Корем (см)', 'Abdomen circumference (cm)'),
+  ('Обиколка Ханш (см)', 'Hip circumference (cm)'),
+  ('Обиколка Бедро (см)', 'Thigh circumference (cm)'),
+  ('Обиколка Коляно (см)', 'Knee circumference (cm)'),
+  ('Тегло (кг)', 'Weight (kg)')
+) as v(name, name_en)
 where not exists (select 1 from parameters where category = 'body');
 
 -- ---------- 3. История от стойности по параметър и клиент ----------

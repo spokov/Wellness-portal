@@ -256,7 +256,7 @@ async function createFullBackup(adminClient: any) {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
-    app_version: '2.4.0',
+    app_version: '2.5.0',
     created_at: new Date().toISOString(),
     auth_users: authUsers.filter((user: any) => profileIds.has(user.id)).map(sanitizeAuthUser),
     tables: {
@@ -285,7 +285,11 @@ async function restoreFullBackup(
   const authUsers = Array.isArray(backup.auth_users) ? backup.auth_users : []
   const profiles = Array.isArray(backup.tables?.profiles) ? backup.tables.profiles : []
   const clients = Array.isArray(backup.tables?.clients) ? backup.tables.clients : []
-  const parameters = Array.isArray(backup.tables?.parameters) ? backup.tables.parameters : []
+  const parameters = (Array.isArray(backup.tables?.parameters) ? backup.tables.parameters : [])
+    .map((parameter: any) => ({
+      ...parameter,
+      name_en: String(parameter?.name_en || parameter?.name || '').trim(),
+    }))
   const entries = Array.isArray(backup.tables?.parameter_entries) ? backup.tables.parameter_entries : []
   const photos = Array.isArray(backup.storage?.client_photos) ? backup.storage.client_photos : []
 

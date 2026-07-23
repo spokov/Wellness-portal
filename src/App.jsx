@@ -142,8 +142,8 @@ function VisibleBackButton() {
 
 function Banner() {
   return (
-    <header className="border-b border-line bg-card pt-1 shadow-sm">
-      <Link to="/" className="mx-auto block max-w-[1200px]" aria-label="Wellness portal">
+    <header className="w-full overflow-hidden border-b border-line bg-card shadow-sm">
+      <Link to="/" className="block w-full" aria-label="Wellness portal">
         <img
           src="/banner.png"
           alt="Believe in yourself — health, nutrition, balance, happiness"

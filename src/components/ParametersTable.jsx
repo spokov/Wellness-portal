@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import HistoryModal from './HistoryModal.jsx'
 import { useLanguage } from '../lib/i18n.jsx'
+import { parameterLabel } from '../lib/parameters.js'
 
 export default function ParametersTable({
   parameters,
@@ -23,7 +24,7 @@ export default function ParametersTable({
   saving = false,
   allowHistoryTransfer = true,
 }) {
-  const { t, formatDate } = useLanguage()
+  const { t, formatDate, lang } = useLanguage()
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const latestOverallDate = dateInHeader
@@ -85,7 +86,7 @@ export default function ParametersTable({
               return (
                 <tr key={parameter.id} className="border-b border-line/60 last:border-0 hover:bg-paper/35">
                   <td className="py-3 pl-4 pr-2 font-mono text-xs text-ink-soft">{parameter.sort_order}</td>
-                  <td className="py-3 pr-4 font-display font-medium text-ink">{parameter.name}</td>
+                  <td className="py-3 pr-4 font-display font-medium text-ink">{parameterLabel(parameter, lang)}</td>
                   <td className="py-3 pr-4">
                     {latest ? (
                       <>
@@ -102,7 +103,7 @@ export default function ParametersTable({
                         className="input"
                         type="text"
                         inputMode="decimal"
-                        aria-label={`${t('colNewValue')}: ${parameter.name}`}
+                        aria-label={`${t('colNewValue')}: ${parameterLabel(parameter, lang)}`}
                         placeholder={t('newValuePlaceholder')}
                         value={newValues[parameter.id] ?? ''}
                         onChange={(event) => onValueChange(parameter.id, event.target.value)}
